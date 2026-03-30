@@ -19,12 +19,6 @@ async function init() {
         
         isInitialized = true;
         loadMode('yield', document.querySelector('.dash-btn'));
-
-        // 全削除ボタンのイベントリスナーを確実に登録
-        const clearBtn = document.getElementById('clear-memo-btn');
-        if (clearBtn) {
-            clearBtn.onclick = clearAllMemo;
-        }
     } catch (e) {
         if (renderTarget) renderTarget.innerHTML = "データ取得エラー。";
     }
@@ -62,7 +56,7 @@ function loadMode(mode, btn) {
 
 function saveToMemo(s, p, a, c, id) {
     if (myPlan.some(item => item.id === id)) {
-        alert("追加済みです。");
+        alert("この案件は既に追加されています。");
         return;
     }
     myPlan.push({s, p, a, c, id, budget: 1000});
@@ -119,7 +113,8 @@ function delMemo(i) {
 }
 
 function clearAllMemo() {
-    if (confirm("メモをすべて削除しますか？")) {
+    if (myPlan.length === 0) return;
+    if (confirm("戦略メモの内容をすべて削除しますか？")) {
         myPlan = [];
         renderMemo();
     }
@@ -128,19 +123,39 @@ function clearAllMemo() {
 function exportTxt() {
     if(myPlan.length === 0) return alert("メモが空です");
     let totalD = 0;
-    let txt = "=== DeFi Strategy Portfolio ===\\n\\n";
+    let txt = "=== DeFi Strategy Portfolio ===\n\n";
+    
+    // 広告枠（日本語表示）
+    txt += "【PR】Crypto Wallet X - 安全なブリッジと資産管理を実現\n";
+    txt += "詳細はこちら: https://example.com/wallet-x\n\n";
+
     myPlan.forEach((m, i) => {
         const d = (m.budget * (m.a / 100)) / 365;
         totalD += d;
-        // ダウンロード用テキストには Est. Daily を含める
-        txt += `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\\n   Budget: $${m.budget}\\n   Est. Daily: $${d.toFixed(2)} / Monthly: $${(d*30).toFixed(2)}\\n   Protocol: ${m.p} (${m.c})\\n\\n`;
+        txt += `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\n`;
+        txt += `   投資予算: $${m.budget.toLocaleString()}\n`;
+        txt += `   推定収益: 日利 $${d.toFixed(2)} / 月利 $${(d*30).toFixed(2)}\n`;
+        txt += `   プロトコル: ${m.p} (${m.chain || ''})\n\n`;
     });
-    txt += "--------------------------------\\n";
-    txt += `TOTAL MONTHLY ESTIMATE: $${(totalD * 30).toFixed(2)}\\n`;
-    txt += "--------------------------------\\nSource: DeFiLlama";
-    const blob = new Blob([txt], {type: 'text/plain'});
+    
+    txt += "--------------------------------\n";
+    txt += `合計推定月利: $${(totalD * 30).toLocaleString(undefined, {minimumFractionDigits: 2})}\n`;
+    txt += "--------------------------------\n";
+    txt += "データ提供: DeFiLlama (https://defillama.com/)\n";
+
+    // 文字化け対策(BOM付与)
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, txt], {type: 'text/plain;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'defi_portfolio.txt';
+    a.download = 'defi_portfolio_plan.txt';
     a.click();
 }
+
+// グローバルスコープへ公開（確実にHTMLから呼び出せるようにする）
+window.clearAllMemo = clearAllMemo;
+window.saveToMemo = saveToMemo;
+window.updateBudget = updateBudget;
+window.delMemo = delMemo;
+window.exportTxt = exportTxt;
+window.loadMode = loadMode;
