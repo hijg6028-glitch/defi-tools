@@ -34,7 +34,6 @@ function loadMode(mode, btn) {
         ? db.filter(p => p.tvlUsd > 100000).sort((a,b) => b.apy - a.apy)
         : db.filter(p => p.tvlUsd > 1000000).sort((a,b) => b.tvlUsd - a.tvlUsd);
 
-    // add-mark クラスを追加（回転エフェクト用）
     target.innerHTML = list.slice(0, config.limit).map(p => `
         <div class="yield-card" style="padding: 12px; min-height: 100px;">
             <button class="add-mark" onclick="saveToMemo('${p.symbol}', '${p.project}', ${p.apy}, '${p.chain}', '${p.pool}')">+</button>
@@ -50,47 +49,74 @@ function loadMode(mode, btn) {
 }
 
 function setCalc(apy) {
-    curAPY = apy;
-    doCalc();
+    const input = document.getElementById('calc-input');
+    if(input) {
+        input.value = 1000; // デフォルト予算
+        curAPY = apy;
+        doCalc();
+    }
 }
 
 function doCalc() {
-    const input = document.getElementById('calc-input');
-    const amt = input ? input.value : 0;
+    const amt = document.getElementById('calc-input').value || 0;
     const d = (amt * (curAPY / 100)) / 365;
     document.getElementById('res-d').innerText = '$' + d.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById('res-m').innerText = '$' + (d * 30).toLocaleString(undefined, {minimumFractionDigits: 2});
 }
 
 function saveToMemo(s, p, a, c, id) {
-    // 重複チェック（pool IDで判定）
     if (myPlan.some(item => item.id === id)) {
-        alert("この案件は既に追加されています。");
+        alert("追加済みです。");
         return;
     }
-    myPlan.push({s, p, a, c, id});
+    // 初期予算1000ドルで追加
+    myPlan.push({s, p, a, c, id, budget: 1000});
+    renderMemo();
+}
+
+function updateBudget(index, value) {
+    myPlan[index].budget = parseFloat(value) || 0;
     renderMemo();
 }
 
 function renderMemo() {
     const box = document.getElementById('memo-box');
     const emptyMsg = document.getElementById('memo-empty');
-    if (!box) return;
-    
-    if(myPlan.length === 0) {
-        if (emptyMsg) emptyMsg.style.display = 'block';
+    const totalD = document.getElementById('total-res-d');
+    const totalM = document.getElementById('total-res-m');
+
+    if (myPlan.length === 0) {
+        emptyMsg.style.display = 'block';
         box.innerHTML = '';
+        totalD.innerText = '$0.00';
+        totalM.innerText = '$0.00';
         return;
     }
-    
-    if (emptyMsg) emptyMsg.style.display = 'none';
-    box.innerHTML = myPlan.map((m, i) => `
-        <div style="background:#1b1a21; padding:10px; border-radius:10px; margin-bottom:8px; position:relative; border-left:3px solid #7645D9;">
-            <div style="font-weight:bold; font-size:0.8rem;">${m.s} <small style="color:#31D0AA;">(${m.a.toFixed(1)}%)</small></div>
-            <div style="font-size:0.65rem; color:#666;">${m.p} (${m.c})</div>
-            <span onclick="delMemo(${i})" style="position:absolute; right:10px; top:10px; cursor:pointer; color:#444;">×</span>
-        </div>
-    `).join('');
+
+    emptyMsg.style.display = 'none';
+    let totalDaily = 0;
+
+    box.innerHTML = myPlan.map((m, i) => {
+        const daily = (m.budget * (m.a / 100)) / 365;
+        totalDaily += daily;
+        return `
+            <div style="background:#1b1a21; padding:10px; border-radius:10px; margin-bottom:8px; position:relative; border-left:3px solid #7645D9;">
+                <div style="display:flex; justify-content:space-between; align-items:start; padding-right:15px;">
+                    <b style="font-size:0.75rem;">${m.s} <span style="color:#31D0AA;">(${m.a.toFixed(1)}%)</span></b>
+                    <span onclick="delMemo(${i})" style="cursor:pointer; color:#444; font-size:1rem;">×</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
+                    <span style="font-size:0.6rem; color:#666;">Budget: $</span>
+                    <input type="number" value="${m.budget}" oninput="updateBudget(${i}, this.value)" 
+                        style="width:70px; background:#08060B; border:1px solid #383241; color:#fff; font-size:0.7rem; border-radius:4px; padding:2px 4px; outline:none;">
+                </div>
+                <div style="font-size:0.6rem; color:#444; margin-top:3px;">Est: Daily $${daily.toFixed(2)} / Monthly $${(daily*30).toFixed(2)}</div>
+            </div>
+        `;
+    }).join('');
+
+    totalD.innerText = '$' + totalDaily.toLocaleString(undefined, {minimumFractionDigits: 2});
+    totalM.innerText = '$' + (totalDaily * 30).toLocaleString(undefined, {minimumFractionDigits: 2});
 }
 
 function delMemo(i) {
@@ -98,16 +124,22 @@ function delMemo(i) {
     renderMemo();
 }
 
-function showEmergencyInfo() {
-    alert("緊急時はExplorerからContract操作を行ってください。");
-}
-
 function exportTxt() {
     if(myPlan.length === 0) return alert("メモが空です");
-    let txt = "=== DeFi Strategy Plan ===\n\n" + myPlan.map((m, i) => `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\n   ${m.p} on ${m.c}`).join('\n\n');
+    let totalD = 0;
+    let txt = "=== DeFi Strategy Portfolio ===\n\n";
+    myPlan.forEach((m, i) => {
+        const d = (m.budget * (m.a / 100)) / 365;
+        totalD += d;
+        txt += `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\n   Budget: $${m.budget}\n   Est. Monthly: $${(d*30).toFixed(2)}\n   Protocol: ${m.p} (${m.c})\n\n`;
+    });
+    txt += "--------------------------------\n";
+    txt += `TOTAL MONTHLY ESTIMATE: $${(totalD * 30).toFixed(2)}\n`;
+    txt += "--------------------------------\n";
+    
     const blob = new Blob([txt], {type: 'text/plain'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'strategy_plan.txt';
+    a.download = 'defi_portfolio_plan.txt';
     a.click();
 }
