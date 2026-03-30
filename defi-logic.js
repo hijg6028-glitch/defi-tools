@@ -19,12 +19,6 @@ async function init() {
         
         isInitialized = true;
         loadMode('yield', document.querySelector('.dash-btn'));
-
-        // 全削除ボタンのイベントリスナーを確実に登録
-        const clearBtn = document.getElementById('clear-memo-btn');
-        if (clearBtn) {
-            clearBtn.onclick = clearAllMemo;
-        }
     } catch (e) {
         if (renderTarget) renderTarget.innerHTML = "データ取得エラー。";
     }
@@ -47,7 +41,6 @@ function loadMode(mode, btn) {
             <button class="add-mark" onclick="saveToMemo('${p.symbol}', '${p.project}', ${p.apy}, '${p.chain}', '${p.pool}')">+</button>
             <div style="font-weight:bold; font-size:0.85rem; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right:28px;">
                 <a href="https://defillama.com/yields/pool/${p.pool}" target="_blank" class="card-title-link">${p.symbol}</a>
-                <a href="https://defillama.com/yields/pool/${p.pool}" target="_blank" class="llama-source">(Llama)</a>
             </div>
             <div style="font-size:0.6rem; color:#666; margin-top:2px;">${p.project} | ${p.chain}</div>
             <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:flex-end;">
@@ -94,6 +87,7 @@ function renderMemo() {
     box.innerHTML = myPlan.map((m, i) => {
         const daily = (m.budget * (m.a / 100)) / 365;
         totalDaily += daily;
+        // 「Est. Daily」表示を削除し、銘柄とBudget入力のみに変更
         return `
             <div style="background:#1b1a21; padding:6px 8px; border-radius:8px; margin-bottom:5px; position:relative; border-left:3px solid #7645D9;">
                 <div style="display:flex; justify-content:space-between; align-items:center; padding-right:15px;">
@@ -127,20 +121,32 @@ function clearAllMemo() {
 
 function exportTxt() {
     if(myPlan.length === 0) return alert("メモが空です");
+    
     let totalD = 0;
-    let txt = "=== DeFi Strategy Portfolio ===\\n\\n";
+    let txt = "=== DeFi Strategy Portfolio (作成日: " + new Date().toLocaleDateString('ja-JP') + ") ===\r\n\r\n";
+    
+    // --- 広告枠の設置 ---
+    txt += "【PR】暗号資産の運用を安全に：Crypto Wallet X\n";
+    txt += "詳細はこちら: https://example.com/ad-link\n";
+    txt += "------------------------------------------------\r\n\r\n";
+
     myPlan.forEach((m, i) => {
         const d = (m.budget * (m.a / 100)) / 365;
         totalD += d;
-        // ダウンロード用テキストには Est. Daily を含める
-        txt += `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\\n   Budget: $${m.budget}\\n   Est. Daily: $${d.toFixed(2)} / Monthly: $${(d*30).toFixed(2)}\\n   Protocol: ${m.p} (${m.c})\\n\\n`;
+        txt += `${i+1}. 銘柄: ${m.s} (${m.a.toFixed(1)}%)\r\n   投資額: $${m.budget}\r\n   日次収益:$${d.toFixed(2)} / 月次収益: $${(d*30).toFixed(2)}\r\n   プロトコル: ${m.p} (${m.c})\r\n\r\n`;
     });
-    txt += "--------------------------------\\n";
-    txt += `TOTAL MONTHLY ESTIMATE: $${(totalD * 30).toFixed(2)}\\n`;
-    txt += "--------------------------------\\nSource: DeFiLlama";
-    const blob = new Blob([txt], {type: 'text/plain'});
+
+    txt += "--------------------------------\r\n";
+    txt += `合計月次収益予想:$${(totalD * 30).toFixed(2)}\r\n`;
+    txt += "--------------------------------\r\nSource: DeFiLlama";
+
+    // 文字化け対策（BOM付与）
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, txt], {type: 'text/plain;charset=utf-8'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'defi_portfolio.txt';
+    a.download = 'defi_portfolio_plan.txt';
     a.click();
 }
+
+document.addEventListener('DOMContentLoaded', init);
