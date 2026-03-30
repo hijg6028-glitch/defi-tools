@@ -1,4 +1,3 @@
-    <script>
     let db = [];
     let myPlan = [];
     let curAPY = 0;
@@ -104,4 +103,3 @@
     }
 
     init();
-    </script>
