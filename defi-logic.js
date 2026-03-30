@@ -1,8 +1,11 @@
 let db = [];
 let myPlan = [];
 let curAPY = 0;
+let isInitialized = false; // 二重初期化防止フラグ
 
 async function init() {
+    if (isInitialized) return; // すでに初期化済みなら何もしない
+    
     const renderTarget = document.getElementById('dash-render');
     const config = window.WP_DEFI_CONFIG || { symbol: '', limit: 40 };
 
@@ -16,6 +19,7 @@ async function init() {
             db = db.filter(p => p.symbol.toLowerCase().includes(filterLow));
         }
         
+        isInitialized = true; // 初期化完了フラグを立てる
         loadMode('yield', document.querySelector('.dash-btn'));
     } catch (e) {
         if (renderTarget) renderTarget.innerHTML = "データ取得エラー。";
@@ -34,6 +38,7 @@ function loadMode(mode, btn) {
         ? db.filter(p => p.tvlUsd > 100000).sort((a,b) => b.apy - a.apy)
         : db.filter(p => p.tvlUsd > 1000000).sort((a,b) => b.tvlUsd - a.tvlUsd);
 
+    // カードの高さを抑えたコンパクト設計
     target.innerHTML = list.slice(0, config.limit).map(p => `
         <div class="yield-card" style="padding: 12px; min-height: 100px;">
             <button class="add-mark" onclick="saveToMemo('${p.symbol}', '${p.project}', ${p.apy}, '${p.chain}', '${p.pool}')">+</button>
@@ -49,27 +54,16 @@ function loadMode(mode, btn) {
 }
 
 function setCalc(apy) {
-    const input = document.getElementById('calc-input');
-    if(input) {
-        input.value = 1000; // デフォルト予算
-        curAPY = apy;
-        doCalc();
-    }
-}
-
-function doCalc() {
-    const amt = document.getElementById('calc-input').value || 0;
-    const d = (amt * (curAPY / 100)) / 365;
-    document.getElementById('res-d').innerText = '$' + d.toLocaleString(undefined, {minimumFractionDigits: 2});
-    document.getElementById('res-m').innerText = '$' + (d * 30).toLocaleString(undefined, {minimumFractionDigits: 2});
+    curAPY = apy;
+    // メモ側の予算入力を促すため、ここではアラート等は出さず計算ロジックのみ更新
 }
 
 function saveToMemo(s, p, a, c, id) {
+    // 重複チェック
     if (myPlan.some(item => item.id === id)) {
-        alert("追加済みです。");
+        alert("この案件は既に追加されています。");
         return;
     }
-    // 初期予算1000ドルで追加
     myPlan.push({s, p, a, c, id, budget: 1000});
     renderMemo();
 }
@@ -86,21 +80,21 @@ function renderMemo() {
     const totalM = document.getElementById('total-res-m');
 
     if (myPlan.length === 0) {
-        emptyMsg.style.display = 'block';
+        if (emptyMsg) emptyMsg.style.display = 'block';
         box.innerHTML = '';
         totalD.innerText = '$0.00';
         totalM.innerText = '$0.00';
         return;
     }
 
-    emptyMsg.style.display = 'none';
+    if (emptyMsg) emptyMsg.style.display = 'none';
     let totalDaily = 0;
 
     box.innerHTML = myPlan.map((m, i) => {
         const daily = (m.budget * (m.a / 100)) / 365;
         totalDaily += daily;
         return `
-            <div style="background:#1b1a21; padding:10px; border-radius:10px; margin-bottom:8px; position:relative; border-left:3px solid #7645D9;">
+            <div style="background:#1b1a21; padding:8px; border-radius:10px; margin-bottom:6px; position:relative; border-left:3px solid #7645D9;">
                 <div style="display:flex; justify-content:space-between; align-items:start; padding-right:15px;">
                     <b style="font-size:0.75rem;">${m.s} <span style="color:#31D0AA;">(${m.a.toFixed(1)}%)</span></b>
                     <span onclick="delMemo(${i})" style="cursor:pointer; color:#444; font-size:1rem;">×</span>
@@ -108,9 +102,9 @@ function renderMemo() {
                 <div style="display:flex; align-items:center; gap:5px; margin-top:5px;">
                     <span style="font-size:0.6rem; color:#666;">Budget: $</span>
                     <input type="number" value="${m.budget}" oninput="updateBudget(${i}, this.value)" 
-                        style="width:70px; background:#08060B; border:1px solid #383241; color:#fff; font-size:0.7rem; border-radius:4px; padding:2px 4px; outline:none;">
+                        style="width:75px; background:#08060B; border:1px solid #383241; color:#fff; font-size:0.7rem; border-radius:4px; padding:2px 4px; outline:none;">
                 </div>
-                <div style="font-size:0.6rem; color:#444; margin-top:3px;">Est: Daily $${daily.toFixed(2)} / Monthly $${(daily*30).toFixed(2)}</div>
+                <div style="font-size:0.55rem; color:#444; margin-top:3px;">Est. Daily: $${daily.toFixed(2)}</div>
             </div>
         `;
     }).join('');
@@ -136,10 +130,9 @@ function exportTxt() {
     txt += "--------------------------------\n";
     txt += `TOTAL MONTHLY ESTIMATE: $${(totalD * 30).toFixed(2)}\n`;
     txt += "--------------------------------\n";
-    
     const blob = new Blob([txt], {type: 'text/plain'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'defi_portfolio_plan.txt';
+    a.download = 'defi_portfolio.txt';
     a.click();
 }
