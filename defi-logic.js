@@ -19,6 +19,12 @@ async function init() {
         
         isInitialized = true;
         loadMode('yield', document.querySelector('.dash-btn'));
+
+        // 全削除ボタンのイベントリスナーを確実に登録
+        const clearBtn = document.getElementById('clear-memo-btn');
+        if (clearBtn) {
+            clearBtn.onclick = clearAllMemo;
+        }
     } catch (e) {
         if (renderTarget) renderTarget.innerHTML = "データ取得エラー。";
     }
@@ -76,9 +82,9 @@ function renderMemo() {
 
     if (myPlan.length === 0) {
         if (emptyMsg) emptyMsg.style.display = 'block';
-        box.innerHTML = '';
-        totalD.innerText = '$0.00';
-        totalM.innerText = '$0.00';
+        if (box) box.innerHTML = '';
+        if (totalD) totalD.innerText = '$0.00';
+        if (totalM) totalM.innerText = '$0.00';
         return;
     }
 
@@ -126,6 +132,7 @@ function exportTxt() {
     myPlan.forEach((m, i) => {
         const d = (m.budget * (m.a / 100)) / 365;
         totalD += d;
+        // ダウンロード用テキストには Est. Daily を含める
         txt += `${i+1}. ${m.s} (${m.a.toFixed(1)}%)\\n   Budget: $${m.budget}\\n   Est. Daily: $${d.toFixed(2)} / Monthly: $${(d*30).toFixed(2)}\\n   Protocol: ${m.p} (${m.c})\\n\\n`;
     });
     txt += "--------------------------------\\n";
