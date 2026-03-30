@@ -34,7 +34,7 @@ function loadMode(mode, btn) {
         ? db.filter(p => p.tvlUsd > 100000).sort((a,b) => b.apy - a.apy)
         : db.filter(p => p.tvlUsd > 1000000).sort((a,b) => b.tvlUsd - a.tvlUsd);
 
-    // カードの高さを低くし、コンパクトなデザインに変更
+    // add-mark クラスを追加（回転エフェクト用）
     target.innerHTML = list.slice(0, config.limit).map(p => `
         <div class="yield-card" style="padding: 12px; min-height: 100px;">
             <button class="add-mark" onclick="saveToMemo('${p.symbol}', '${p.project}', ${p.apy}, '${p.chain}', '${p.pool}')">+</button>
@@ -55,7 +55,8 @@ function setCalc(apy) {
 }
 
 function doCalc() {
-    const amt = document.getElementById('calc-input').value || 0;
+    const input = document.getElementById('calc-input');
+    const amt = input ? input.value : 0;
     const d = (amt * (curAPY / 100)) / 365;
     document.getElementById('res-d').innerText = '$' + d.toLocaleString(undefined, {minimumFractionDigits: 2});
     document.getElementById('res-m').innerText = '$' + (d * 30).toLocaleString(undefined, {minimumFractionDigits: 2});
@@ -74,17 +75,20 @@ function saveToMemo(s, p, a, c, id) {
 function renderMemo() {
     const box = document.getElementById('memo-box');
     const emptyMsg = document.getElementById('memo-empty');
+    if (!box) return;
+    
     if(myPlan.length === 0) {
-        emptyMsg.style.display = 'block';
+        if (emptyMsg) emptyMsg.style.display = 'block';
         box.innerHTML = '';
         return;
     }
-    emptyMsg.style.display = 'none';
+    
+    if (emptyMsg) emptyMsg.style.display = 'none';
     box.innerHTML = myPlan.map((m, i) => `
-        <div style="background:#1b1a21; padding:8px; border-radius:8px; margin-bottom:6px; position:relative; border-left:3px solid #7645D9;">
-            <div style="font-weight:bold; font-size:0.75rem;">${m.s} <small style="color:#31D0AA;">(${m.a.toFixed(1)}%)</small></div>
-            <div style="font-size:0.6rem; color:#666;">${m.p} (${m.c})</div>
-            <span onclick="delMemo(${i})" style="position:absolute; right:8px; top:8px; cursor:pointer; color:#444;">×</span>
+        <div style="background:#1b1a21; padding:10px; border-radius:10px; margin-bottom:8px; position:relative; border-left:3px solid #7645D9;">
+            <div style="font-weight:bold; font-size:0.8rem;">${m.s} <small style="color:#31D0AA;">(${m.a.toFixed(1)}%)</small></div>
+            <div style="font-size:0.65rem; color:#666;">${m.p} (${m.c})</div>
+            <span onclick="delMemo(${i})" style="position:absolute; right:10px; top:10px; cursor:pointer; color:#444;">×</span>
         </div>
     `).join('');
 }
